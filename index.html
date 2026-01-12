@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>2048 - Beginner Version</title>
+  <style>
+    /* Basic reset */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #faf8ef;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      touch-action: none;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    #score-box {
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+
+    #controls {
+      margin-bottom: 10px;
+    }
+
+    button {
+      padding: 6px 10px;
+      border: none;
+      background: #8f7a66;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    /* Board layout: 4x4 grid */
+    #board {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      background: #bbada0;
+      padding: 8px;
+      border-radius: 6px;
+      width: min(90vw, 360px);
+      height: min(90vw, 360px);
+    }
+
+
+   .cell {
+      background: #cdc1b4;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(18px, 5vw, 28px);
+      font-weight: bold;
+      color: #776e65;
+    }
+
+
+    /* Basic different colors for tiles */
+    .v2 { background: #eee4da; }
+    .v4 { background: #ede0c8; }
+    .v8 { background: #f2b179; color: #f9f6f2; }
+    .v16 { background: #f59563; color: #f9f6f2; }
+    .v32 { background: #f67c5f; color: #f9f6f2; }
+    .v64 { background: #f65e3b; color: #f9f6f2; }
+    .v128 { background: #edcf72; color: #f9f6f2; font-size: 20px; }
+    .v256 { background: #edcc61; color: #f9f6f2; font-size: 20px; }
+    .v512 { background: #edc850; color: #f9f6f2; font-size: 18px; }
+    .v1024 { background: #edc53f; color: #f9f6f2; font-size: 16px; }
+    .v2048 { background: #edc22e; color: #f9f6f2; font-size: 16px; }
+
+    #message {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    button {
+     padding: 10px 16px;
+      font-size: 16px;
+    }
+    #controls {
+     margin-bottom: 16px;
+    }
+
+
+  </style>
+</head>
+<body>
+
+  <h1>2048 (Beginner)</h1>
+  <div id="score-box">Score: <span id="score">0</span></div>
+  <div id="controls">
+    <button id="new-game">New Game</button>
+  </div>
+
+  <div id="board"></div>
+
+  <div id="message"></div>
+
+  <script>
+    // ===== BASIC 2048 GAME LOGIC FOR BEGINNERS =====
+    // We use a 4x4 grid stored as a 2D array of numbers.
+    // 0 means empty, other numbers (2,4,8,...) are tiles.
+
+    const SIZE = 4;       // board is 4x4
+    let board = [];       // 2D array
+    let score = 0;
+
+    const boardEl = document.getElementById('board');
+    const scoreEl = document.getElementById('score');
+    const msgEl = document.getElementById('message');
+    const newBtn = document.getElementById('new-game');
+
+    // Create the 16 cell elements once (static)
+    function createBoardHTML() {
+      boardEl.innerHTML = ''; // clear if any
+      for (let i = 0; i < SIZE * SIZE; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        boardEl.appendChild(cell);
+      }
+    }
+
+    // Initialize 2D array with zeros and add 2 random tiles
+    function newGame() {
+      board = [];
+      for (let r = 0; r < SIZE; r++) {
+        const row = [];
+        for (let c = 0; c < SIZE; c++) {
+          row.push(0);
+        }
+        board.push(row);
+      }
+      score = 0;
+      updateScore();
+      msgEl.textContent = '';
+
+      addRandomTile();
+      addRandomTile();
+      draw();
+    }
+
+    // Add a 2 or 4 tile in a random empty cell
+    function addRandomTile() {
+      const emptyCells = [];
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if (board[r][c] === 0) {
+            emptyCells.push({ r: r, c: c });
+          }
+        }
+      }
+      if (emptyCells.length === 0) return;
+
+      const randIndex = Math.floor(Math.random() * emptyCells.length);
+      const cell = emptyCells[randIndex];
+
+      // 90% chance 2, 10% chance 4
+      board[cell.r][cell.c] = Math.random() < 0.9 ? 2 : 4;
+    }
+
+    // Draw board array to HTML cells
+    function draw() {
+      const cells = boardEl.querySelectorAll('.cell');
+      let index = 0;
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          const value = board[r][c];
+          const cellEl = cells[index];
+          cellEl.textContent = value === 0 ? '' : value; // no text if 0
+
+          // reset tile class then add new one if needed
+          cellEl.className = 'cell';
+          if (value !== 0) {
+            cellEl.classList.add('v' + value);
+          }
+
+          index++;
+        }
+      }
+    }
+
+    function updateScore() {
+      scoreEl.textContent = score;
+    }
+
+    // Helper: slide a single row to the left
+    // 1) remove zeros
+    // 2) merge equal neighbors
+    // 3) add zeros at end
+    function slideRowLeft(row) {
+      let arr = row.filter(x => x !== 0); // remove zeros
+      let gained = 0;
+
+      for (let i = 0; i < arr.length - 1; i++) {
+        if (arr[i] === arr[i + 1]) {
+          arr[i] = arr[i] * 2;
+          gained += arr[i];
+          arr[i + 1] = 0;
+        }
+      }
+
+      arr = arr.filter(x => x !== 0); // remove zeros again
+      while (arr.length < SIZE) {
+        arr.push(0);
+      }
+      return { newRow: arr, gained: gained };
+    }
+
+    // Move left: apply slideRowLeft to each row
+    function moveLeft() {
+      let moved = false;
+      let totalGained = 0;
+
+      for (let r = 0; r < SIZE; r++) {
+        const row = board[r];
+        const result = slideRowLeft(row);
+        board[r] = result.newRow;
+        if (!arraysEqual(row, result.newRow)) {
+          moved = true;
+        }
+        totalGained += result.gained;
+      }
+
+      if (moved) {
+        score += totalGained;
+        updateScore();
+        addRandomTile();
+        draw();
+        checkGameOver();
+      }
+    }
+
+    // Move right: reverse row, slide left, then reverse back
+    function moveRight() {
+      let moved = false;
+      let totalGained = 0;
+
+      for (let r = 0; r < SIZE; r++) {
+        const row = board[r].slice().reverse();
+        const result = slideRowLeft(row);
+        const newRow = result.newRow.reverse();
+
+        if (!arraysEqual(board[r], newRow)) {
+          moved = true;
+        }
+
+        board[r] = newRow;
+        totalGained += result.gained;
+      }
+
+      if (moved) {
+        score += totalGained;
+        updateScore();
+        addRandomTile();
+        draw();
+        checkGameOver();
+      }
+    }
+
+    // Move up: work on columns like rows
+    function moveUp() {
+      let moved = false;
+      let totalGained = 0;
+
+      for (let c = 0; c < SIZE; c++) {
+        const col = [];
+        for (let r = 0; r < SIZE; r++) {
+          col.push(board[r][c]);
+        }
+
+        const result = slideRowLeft(col);
+        const newCol = result.newRow;
+
+        for (let r = 0; r < SIZE; r++) {
+          if (board[r][c] !== newCol[r]) {
+            moved = true;
+          }
+          board[r][c] = newCol[r];
+        }
+
+        totalGained += result.gained;
+      }
+
+      if (moved) {
+        score += totalGained;
+        updateScore();
+        addRandomTile();
+        draw();
+        checkGameOver();
+      }
+    }
+
+    // Move down: reverse column, slide left, reverse back
+    function moveDown() {
+      let moved = false;
+      let totalGained = 0;
+
+      for (let c = 0; c < SIZE; c++) {
+        const col = [];
+        for (let r = 0; r < SIZE; r++) {
+          col.push(board[r][c]);
+        }
+
+        const reversed = col.slice().reverse();
+        const result = slideRowLeft(reversed);
+        const newCol = result.newRow.reverse();
+
+        for (let r = 0; r < SIZE; r++) {
+          if (board[r][c] !== newCol[r]) {
+            moved = true;
+          }
+          board[r][c] = newCol[r];
+        }
+
+        totalGained += result.gained;
+      }
+
+      if (moved) {
+        score += totalGained;
+        updateScore();
+        addRandomTile();
+        draw();
+        checkGameOver();
+      }
+    }
+
+    // Check if two arrays are same (used to detect movement)
+    function arraysEqual(a, b) {
+      for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+      }
+      return true;
+    }
+
+    // Check if game is over: no empty cells and no possible merges
+    function checkGameOver() {
+      if (hasEmptyCell()) return;
+
+      // If any adjacent equal tiles exist, still moves left
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          const current = board[r][c];
+
+          if (r + 1 < SIZE && board[r + 1][c] === current) return;
+          if (c + 1 < SIZE && board[r][c + 1] === current) return;
+        }
+      }
+
+      msgEl.textContent = 'Game Over! Press New Game to restart.';
+    }
+
+    function hasEmptyCell() {
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if (board[r][c] === 0) return true;
+        }
+      }
+      return false;
+    }
+
+    // Handle keyboard input
+    window.addEventListener('keydown', function (e) {
+      if (msgEl.textContent.startsWith('Game Over')) return; // stop on game over
+
+      if (e.key === 'ArrowLeft') {
+        moveLeft();
+      } else if (e.key === 'ArrowRight') {
+        moveRight();
+      } else if (e.key === 'ArrowUp') {
+        moveUp();
+      } else if (e.key === 'ArrowDown') {
+        moveDown();
+      }
+    });
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    boardEl.addEventListener('touchstart', function (e) {
+      const touch = e.touches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+    }, { passive: true });
+
+    boardEl.addEventListener('touchend', function (e) {
+      const touch = e.changedTouches[0];
+      const dx = touch.clientX - touchStartX;
+      const dy = touch.clientY - touchStartY;
+
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+
+      // Minimum swipe distance
+      if (Math.max(absDx, absDy) < 30) return;
+
+      if (absDx > absDy) {
+        dx > 0 ? moveRight() : moveLeft();
+      } else {
+        dy > 0 ? moveDown() : moveUp();
+      }
+    });
+
+    // New game button
+    newBtn.addEventListener('click', function () {
+      newGame();
+    });
+
+    // Setup at start
+    createBoardHTML();
+    newGame();
+  </script>
+</body>
+</html>
